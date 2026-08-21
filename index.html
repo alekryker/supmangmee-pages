@@ -1,6 +1,6 @@
-<!-- ALL-IN-ONE: แนะนำเพื่อน + ถอนขั้นต่ำ 100 บาท + ประกาศหน้าเว็บ + Popup สูงสุด 2 รายการ -->
+<!-- ALL-IN-ONE: แนะนำเพื่อน + ถอนขั้นต่ำ 50 บาท + ประกาศหน้าเว็บ + Popup สูงสุด 2 รายการ -->
 <!-- RESULT HISTORY SHEET FINAL -->
-<!-- INDEX V7 TOUCH-SAFE CONFIRM + STATELESS SESSION -->
+<!-- INDEX V8 WITHDRAW MIN50 + TOUCH-SAFE CONFIRM + STATELESS SESSION -->
 <!doctype html>
 <html lang="th">
  <head>
@@ -9556,7 +9556,7 @@ function compressSlipImageV16(file) {
 function showWithdrawInfo() {
   var user = state.user || {};
   var available = Number(user.credit || 0);
-  var minWithdraw = 100;
+  var minWithdraw = 50;
   var bankAccountName = user.bankAccountName || user.displayName || "";
   var bankName = user.bankName || "";
   var bankAccountNo = user.bankAccountNo || "";
@@ -9568,14 +9568,14 @@ function showWithdrawInfo() {
     html:
       '<div style="text-align:left;font-size:13px;line-height:1.65">' +
         '<div style="margin-bottom:12px;padding:14px;border:1px solid #e6d7d2;border-radius:15px;background:#f4f2f1">' +
-          '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:#4a0707">จำนวนเงินที่ถอนได้</div>' +
+          '<div style="font-size:15px;font-weight:800;margin-bottom:8px;color:#4a0707">จำนวนเงินที่ถอนได้</div>' +
           '<div style="padding:14px 12px;border-radius:13px;background:#fff;border:1px solid #ece4e1;text-align:center;font-size:30px;font-weight:800;color:#0a9f24">฿ ' + money(available) + '</div>' +
         '</div>' +
         '<div style="margin-bottom:12px;padding:14px;border:1px solid #e6d7d2;border-radius:15px;background:#f4f2f1">' +
-          '<div style="font-size:14px;font-weight:700;margin-bottom:8px;color:#4a0707">จำนวนเงินที่ต้องการถอน</div>' +
-          '<input id="swalWithdrawAmount" type="number" min="100" max="' + escapeAttr(String(available)) + '" step="0.01" inputmode="decimal" placeholder="เช่น 500" style="margin:0;width:100%;height:56px;border:1px solid #d9cdca;border-radius:13px;padding:0 15px;font-size:20px;box-sizing:border-box;background:#fff;color:#2b1512">' +
+          '<div style="font-size:15px;font-weight:800;margin-bottom:8px;color:#4a0707">จำนวนเงินที่ต้องการถอน</div>' +
+          '<input id="swalWithdrawAmount" type="number" min="50" max="' + escapeAttr(String(available)) + '" step="0.01" inputmode="decimal" placeholder="เช่น 500" style="margin:0;width:100%;height:56px;border:1px solid #d9cdca;border-radius:13px;padding:0 15px;font-size:20px;box-sizing:border-box;background:#fff;color:#2b1512">' +
         '</div>' +
-        '<div style="margin:0 2px 13px;color:#5f514d;font-size:13px">ถอนเงินขั้นต่ำ <b>100 บาท</b></div>' +
+        '<div style="margin:0 2px 13px;color:#5f514d;font-size:13px">ถอนเงินขั้นต่ำ <b>50 บาท</b></div>' +
         '<div style="padding:13px;border:1px solid #fecaca;border-radius:13px;background:#fef2f2;color:#7f1d1d">' +
           '<div style="font-size:10px;font-weight:900;margin-bottom:6px;color:#b91c1c">ข้อมูลธนาคารสำหรับถอนเงิน</div>' +
           '<div><b>ชื่อบัญชี:</b> ' + escapeHtml(bankAccountName || "-") + '</div>' +
@@ -9596,7 +9596,7 @@ function showWithdrawInfo() {
         return false;
       }
       if (amount < minWithdraw) {
-        Swal.showValidationMessage("ถอนเงินขั้นต่ำ 100 บาท");
+        Swal.showValidationMessage("ถอนเงินขั้นต่ำ 50 บาท");
         return false;
       }
       if (available < amount) {
@@ -11457,21 +11457,21 @@ function copyAffiliateLink() {
 function requestAffiliateWithdraw() {
   var d = state.affiliate || {};
   var max = Number(d.availableCommission || 0);
-  var min = 100;
+  var min = 50;
   if (max <= 0) { showToast("ยังไม่มีค่าคอมที่ถอนได้"); return; }
-  if (max < min) { showToast("ถอนขั้นต่ำ 100 บาท"); return; }
+  if (max < min) { showToast("ถอนขั้นต่ำ 50 บาท"); return; }
   Swal.fire({
     title:"ถอนค่าคอม",
     html:'<div style="text-align:left">' +
       '<div style="margin-bottom:12px;padding:14px;border-radius:16px;background:#f5f1f0;border:1px solid #ead6d0">' +
-        '<div style="font-size:14px;font-weight:700;color:#4a0707;margin-bottom:8px">จำนวนที่ถอนได้</div>' +
+        '<div style="font-size:15px;font-weight:800;color:#4a0707;margin-bottom:8px">จำนวนเงินที่ถอนได้</div>' +
         '<div style="padding:14px 12px;border-radius:14px;background:#fff;border:1px solid #ece2de;text-align:center;font-size:32px;font-weight:800;color:#11a323">฿ ' + money(max) + '</div>' +
       '</div>' +
       '<div style="margin-bottom:10px;padding:14px;border-radius:16px;background:#f5f1f0;border:1px solid #ead6d0">' +
-        '<div style="font-size:14px;font-weight:700;color:#4a0707;margin-bottom:8px">จำนวนที่ต้องการถอน</div>' +
-        '<input id="affiliateWithdrawAmount" type="number" min="100" max="' + escapeAttr(String(max)) + '" step="0.01" value="' + escapeAttr(String(max.toFixed(2))) + '" style="width:100%;height:56px;border:1px solid #e1d1cb;border-radius:14px;padding:0 16px;font-size:20px;box-sizing:border-box;background:#fff;color:#2b1c1a">' +
+        '<div style="font-size:15px;font-weight:800;color:#4a0707;margin-bottom:8px">จำนวนเงินที่ต้องการถอน</div>' +
+        '<input id="affiliateWithdrawAmount" type="number" min="50" max="' + escapeAttr(String(max)) + '" step="0.01" value="' + escapeAttr(String(max.toFixed(2))) + '" style="width:100%;height:56px;border:1px solid #e1d1cb;border-radius:14px;padding:0 16px;font-size:20px;box-sizing:border-box;background:#fff;color:#2b1c1a">' +
       '</div>' +
-      '<div style="font-size:13px;color:#6f5149;line-height:1.6">ถอนขั้นต่ำ 100 บาท<br>โอนเข้าบัญชี: ' + escapeHtml(d.bankName||"") + ' ' + escapeHtml(d.bankAccountNo||"") + '</div>' +
+      '<div style="font-size:13px;color:#6f5149;line-height:1.6">ถอนขั้นต่ำ 50 บาท<br>โอนเข้าบัญชี: ' + escapeHtml(d.bankName||"") + ' ' + escapeHtml(d.bankAccountNo||"") + '</div>' +
     '</div>',
     showCancelButton:true, confirmButtonText:"ส่งคำขอถอน", cancelButtonText:"ยกเลิก",
     focusConfirm:false,
@@ -11479,7 +11479,7 @@ function requestAffiliateWithdraw() {
       var el = document.getElementById("affiliateWithdrawAmount");
       var n = Number((el && el.value) || 0);
       if (!(n > 0)) { Swal.showValidationMessage("กรุณากรอกยอดถอน"); return false; }
-      if (n < min) { Swal.showValidationMessage("ถอนขั้นต่ำ 100 บาท"); return false; }
+      if (n < min) { Swal.showValidationMessage("ถอนขั้นต่ำ 50 บาท"); return false; }
       if (n > max) { Swal.showValidationMessage("ยอดถอนไม่ถูกต้อง"); return false; }
       return n;
     }
