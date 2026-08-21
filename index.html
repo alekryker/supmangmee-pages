@@ -8575,9 +8575,18 @@ document.addEventListener("DOMContentLoaded", function () {
   testApi();
 
   if (state.token) {
-    boot().catch(function(err){
-      if (!(err && (err.silentSession || err.message === "SESSION_EXPIRED"))) logout(false);
-    });
+    var cachedLoginUser = readFastLoginUser();
+
+    if (cachedLoginUser) {
+      // รีเฟรชหน้าแล้วเข้า Home ทันทีจากข้อมูลที่เก็บไว้
+      enterAppImmediately(cachedLoginUser);
+      startBackgroundBoot();
+    } else {
+      // Session เก่าที่ไม่มี user cache ใช้ boot แบบเดิมครั้งเดียว
+      boot().catch(function(err){
+        if (!(err && (err.silentSession || err.message === "SESSION_EXPIRED"))) logout(false);
+      });
+    }
   }
 });
 
@@ -8893,6 +8902,78 @@ function setAuthMode(mode) {
   clearError();
 }
 
+
+function saveFastLoginUser(user) {
+  try {
+    if (user) sessionStorage.setItem("creditUser", JSON.stringify(user));
+  } catch(e) {}
+}
+
+function readFastLoginUser() {
+  try {
+    var raw = sessionStorage.getItem("creditUser") || "";
+    if (!raw) return null;
+    var user = JSON.parse(raw);
+    return user && user.userId ? user : null;
+  } catch(e) {
+    return null;
+  }
+}
+
+/**
+ * แสดงหน้าหลักทันทีหลัง webLogin สำเร็จ
+ * ไม่รอหวย / เรท / Affiliate / ประกาศ / ผลหวย / บัญชีรับเงิน
+ */
+function enterAppImmediately(user) {
+  if (!user) return;
+
+  state.user = user;
+  state.shopCredit = Number(user.credit || 0);
+  state.isAdmin = String(user.role || "").toUpperCase() === "ADMIN";
+
+  saveFastLoginUser(user);
+  updateUserUI();
+
+  if (els.adminBtn) {
+    els.adminBtn.classList.toggle("hidden", !state.isAdmin);
+  }
+
+  els.loginScreen.classList.add("hidden");
+  els.mainApp.classList.remove("hidden");
+
+  // เข้า Home ก่อนทันที แม้เป็น Admin
+  // Admin ยังกดเมนูผู้ดูแลได้ตามปกติหลัง background boot
+  suppressRoutePush = true;
+  try {
+    showHome();
+  } finally {
+    suppressRoutePush = false;
+  }
+
+  pushAppRoute("home", true);
+}
+
+function startBackgroundBoot() {
+  if (!state.token) return;
+
+  // สำรอง Session หลังเข้าหน้าหลักแล้ว ไม่ขวาง Login
+  api("persistSession", state.token).catch(function(){});
+
+  // โหลดข้อมูลรองทั้งหมดหลังบ้านโดยไม่เปิด Loading overlay
+  setTimeout(function(){
+    boot(true).catch(function(err){
+      // ถ้า session หมดจริงค่อยเด้งออก
+      var msg = String(err && err.message || "");
+      if (
+        msg.indexOf("Session หมดอายุ") >= 0 ||
+        msg === "SESSION_EXPIRED"
+      ) {
+        logout(false);
+      }
+    });
+  }, 0);
+}
+
 function login() {
   var u = (els.loginUser.value || "").trim();
   var p = els.loginPass.value || "";
@@ -8903,14 +8984,25 @@ function login() {
   }
 
   setLoading(true);
+
   api("webLogin", u, p)
     .then(function(r){
       state.token = r.token;
       sessionStorage.setItem("creditToken", state.token);
-      return boot();
+
+      // เข้าระบบทันทีจากข้อมูลที่ webLogin คืนมา
+      enterAppImmediately(r.user);
+
+      // ปิดวงกลมโหลดทันที ไม่รอ getCreditBetBoot
+      setLoading(false);
+
+      // ส่วนที่ไม่จำเป็นต่อ Login โหลดทีหลัง
+      startBackgroundBoot();
     })
-    .catch(showErrorGlobal)
-    .finally(function(){ setLoading(false); });
+    .catch(function(err){
+      showErrorGlobal(err);
+      setLoading(false);
+    });
 }
 
 function registerMember() {
@@ -8947,9 +9039,11 @@ function registerMember() {
       state.token = r.token;
       sessionStorage.setItem("creditToken", state.token);
       localStorage.removeItem("affiliateRef");
-      return boot();
-    })
-    .then(function(){
+
+      enterAppImmediately(r.user);
+      setLoading(false);
+      startBackgroundBoot();
+
       Swal.fire({
         icon:"success",
         title:"สมัครสมาชิกสำเร็จ",
@@ -9079,6 +9173,7 @@ function logout(callServer) {
   state.user = null;
   state.announcementsShown = false;
   sessionStorage.removeItem("creditToken");
+  sessionStorage.removeItem("creditUser");
 
   els.mainApp.classList.add("hidden");
   els.loginScreen.classList.remove("hidden");
@@ -9087,14 +9182,16 @@ function logout(callServer) {
   } catch(e) {}
 }
 
-function boot() {
+function boot(silent) {
+  silent = !!silent;
   if (!state.token) return Promise.reject(new Error("ไม่มี session"));
 
-  setLoading(true);
+  if (!silent) setLoading(true);
 
   return api("getCreditBetBoot", state.token)
     .then(function(data){
       state.user = data.user;
+      saveFastLoginUser(state.user);
       state.shopCredit = data.user ? Number(data.user.credit || 0) : Number(data.shopWalletBalance || 0);
       state.isAdmin = !!data.isAdmin;
       state.depositAccount = data.depositAccount || state.depositAccount;
@@ -9129,25 +9226,27 @@ function boot() {
 
       els.adminBtn.classList.toggle("hidden", !state.isAdmin);
 
-      suppressRoutePush = true;
-      try {
-        if (state.isAdmin) {
-          showAdmin("dashboard");
-        } else {
-          showHome();
+      if (!silent) {
+        suppressRoutePush = true;
+        try {
+          if (state.isAdmin) {
+            showAdmin("dashboard");
+          } else {
+            showHome();
+          }
+        } finally {
+          suppressRoutePush = false;
         }
-      } finally {
-        suppressRoutePush = false;
-      }
 
-      pushAppRoute(state.isAdmin ? "admin" : "home", true);
+        pushAppRoute(state.isAdmin ? "admin" : "home", true);
+      }
 
       els.loginScreen.classList.add("hidden");
       els.mainApp.classList.remove("hidden");
       if (!state.isAdmin) setTimeout(loadAndShowActiveAnnouncements, 250);
       return data;
     })
-    .finally(function(){ setLoading(false); });
+    .finally(function(){ if (!silent) setLoading(false); });
 }
 
 function updateUserUI() {
