@@ -1,6 +1,6 @@
 <!-- ALL-IN-ONE: แนะนำเพื่อน + ถอนขั้นต่ำ 50 บาท + ประกาศหน้าเว็บ + Popup สูงสุด 2 รายการ -->
 <!-- RESULT HISTORY SHEET FINAL -->
-<!-- INDEX V8 WITHDRAW MIN50 + TOUCH-SAFE CONFIRM + STATELESS SESSION -->
+<!-- INDEX V9 WITHDRAW PANEL MIN50 + TOUCH-SAFE CONFIRM + STATELESS SESSION -->
 <!doctype html>
 <html lang="th">
  <head>
@@ -9553,76 +9553,237 @@ function compressSlipImageV16(file) {
 }
 
 
+/* =====================================================
+   V9 WITHDRAW PANEL
+   แสดงยอดที่ถอนได้ + จำนวนเงินที่ต้องการถอน ชัดเจน
+   ถอนขั้นต่ำ 50 บาท
+   ไม่ใช้ SweetAlert เพื่อไม่ให้ CSS เก่าทับข้อความ
+===================================================== */
+function ensureWithdrawPanel() {
+  var layer = document.getElementById("withdrawPanelLayer");
+  if (layer) return layer;
+
+  var style = document.createElement("style");
+  style.id = "withdrawPanelV9Style";
+  style.textContent =
+    "#withdrawPanelLayer{" +
+      "position:fixed;inset:0;z-index:2147483100;" +
+      "display:none;align-items:center;justify-content:center;" +
+      "padding:16px;background:rgba(45,10,10,.58);" +
+      "backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);" +
+      "font-family:'Kanit','Noto Sans Thai',sans-serif;" +
+    "}" +
+    "#withdrawPanelLayer.show{display:flex!important;}" +
+    "#withdrawPanelCard{" +
+      "width:min(100%,560px);max-height:calc(100dvh - 30px);" +
+      "overflow:auto;-webkit-overflow-scrolling:touch;" +
+      "background:#fffdfa;border:1px solid #efb3ae;border-radius:26px;" +
+      "box-shadow:0 24px 80px rgba(60,5,5,.34);padding:22px;" +
+    "}" +
+    ".wd9-title{text-align:center;font-size:31px;font-weight:900;color:#3f1010;margin:4px 0 18px;}" +
+    ".wd9-box{padding:16px;border:1px solid #ead8d3;border-radius:18px;background:#f8f4f2;margin-bottom:14px;}" +
+    ".wd9-label{font-size:16px;font-weight:850;color:#4a1715;margin-bottom:8px;}" +
+    ".wd9-available{" +
+      "padding:14px;border-radius:14px;background:#fff;border:1px solid #e9dfdc;" +
+      "text-align:center;font-size:34px;font-weight:900;color:#159b2a;" +
+    "}" +
+    "#withdrawAmountV9{" +
+      "width:100%;height:60px;border:2px solid #d9cfcc;border-radius:14px;" +
+      "padding:0 16px;font:inherit;font-size:22px;font-weight:750;" +
+      "background:#fff;color:#27100f;outline:none;box-sizing:border-box;" +
+    "}" +
+    "#withdrawAmountV9:focus{border-color:#a51414;box-shadow:0 0 0 3px rgba(165,20,20,.10);}" +
+    ".wd9-min{" +
+      "padding:12px 14px;border-radius:14px;background:#fff4db;" +
+      "border:1px solid #f2cf7a;color:#744608;font-size:14px;font-weight:800;" +
+      "margin-bottom:14px;text-align:center;" +
+    "}" +
+    ".wd9-bank{" +
+      "padding:15px;border-radius:16px;background:#fff1f1;border:1px solid #f2bcbc;" +
+      "color:#6f1515;font-size:14px;line-height:1.75;" +
+    "}" +
+    ".wd9-bank-title{font-size:12px;font-weight:900;color:#b01414;margin-bottom:5px;}" +
+    "#withdrawErrorV9{min-height:22px;margin-top:10px;color:#c11414;font-size:13px;font-weight:800;text-align:center;}" +
+    ".wd9-actions{display:grid;grid-template-columns:1fr 1.35fr;gap:12px;margin-top:12px;}" +
+    ".wd9-actions button{" +
+      "min-height:58px;border-radius:14px;font:inherit;font-size:18px;font-weight:850;" +
+      "touch-action:manipulation;-webkit-tap-highlight-color:transparent;" +
+    "}" +
+    "#withdrawCancelV9{border:0;background:#fee2e2;color:#9a1717;}" +
+    "#withdrawConfirmV9{" +
+      "border:0;background:linear-gradient(135deg,#700909,#b51616);" +
+      "color:#fff;box-shadow:0 10px 24px rgba(112,9,9,.22);" +
+    "}" +
+    "#withdrawConfirmV9:disabled{opacity:.5;box-shadow:none;}" +
+    "@media(max-width:480px){" +
+      "#withdrawPanelLayer{padding:10px;}" +
+      "#withdrawPanelCard{padding:18px 15px;border-radius:22px;}" +
+      ".wd9-title{font-size:27px;margin-bottom:14px;}" +
+      ".wd9-box{padding:14px;}" +
+      ".wd9-available{font-size:31px;}" +
+      ".wd9-actions button{min-height:56px;font-size:17px;}" +
+    "}";
+
+  document.head.appendChild(style);
+
+  layer = document.createElement("div");
+  layer.id = "withdrawPanelLayer";
+  layer.setAttribute("role","dialog");
+  layer.setAttribute("aria-modal","true");
+  layer.innerHTML =
+    '<div id="withdrawPanelCard">' +
+      '<div class="wd9-title">ถอนเงิน</div>' +
+
+      '<div class="wd9-box">' +
+        '<div class="wd9-label">จำนวนเงินที่ถอนได้</div>' +
+        '<div class="wd9-available" id="withdrawAvailableV9">฿ 0.00</div>' +
+      '</div>' +
+
+      '<div class="wd9-box">' +
+        '<div class="wd9-label">จำนวนเงินที่ต้องการถอน</div>' +
+        '<input id="withdrawAmountV9" type="number" min="50" step="0.01" inputmode="decimal" placeholder="กรอกจำนวนเงิน">' +
+      '</div>' +
+
+      '<div class="wd9-min">ถอนเงินขั้นต่ำ 50 บาท</div>' +
+
+      '<div class="wd9-bank">' +
+        '<div class="wd9-bank-title">ข้อมูลธนาคารสำหรับถอนเงิน</div>' +
+        '<div><b>ชื่อบัญชี:</b> <span id="withdrawBankAccountNameV9">-</span></div>' +
+        '<div><b>ธนาคาร:</b> <span id="withdrawBankNameV9">-</span></div>' +
+        '<div><b>เลขบัญชี:</b> <span id="withdrawBankNoV9">-</span></div>' +
+      '</div>' +
+
+      '<div id="withdrawErrorV9"></div>' +
+
+      '<div class="wd9-actions">' +
+        '<button id="withdrawCancelV9" type="button">ยกเลิก</button>' +
+        '<button id="withdrawConfirmV9" type="button">ยืนยันถอนเงิน</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(layer);
+
+  document.getElementById("withdrawCancelV9").onclick = function(){
+    closeWithdrawPanel();
+  };
+
+  document.getElementById("withdrawConfirmV9").onclick = function(){
+    submitWithdrawV9();
+  };
+
+  document.getElementById("withdrawAmountV9").addEventListener("input", function(){
+    var err = document.getElementById("withdrawErrorV9");
+    if (err) err.textContent = "";
+  });
+
+  document.getElementById("withdrawPanelCard").onclick = function(e){
+    e.stopPropagation();
+  };
+
+  layer.onclick = function(e){
+    if (e.target === layer) closeWithdrawPanel();
+  };
+
+  return layer;
+}
+
 function showWithdrawInfo() {
   var user = state.user || {};
   var available = Number(user.credit || 0);
-  var minWithdraw = 50;
-  var bankAccountName = user.bankAccountName || user.displayName || "";
-  var bankName = user.bankName || "";
-  var bankAccountNo = user.bankAccountNo || "";
 
-  Swal.fire({
-    icon:"info",
-    title:"ถอนเงิน",
-    width:560,
-    html:
-      '<div style="text-align:left;font-size:13px;line-height:1.65">' +
-        '<div style="margin-bottom:12px;padding:14px;border:1px solid #e6d7d2;border-radius:15px;background:#f4f2f1">' +
-          '<div style="font-size:15px;font-weight:800;margin-bottom:8px;color:#4a0707">จำนวนเงินที่ถอนได้</div>' +
-          '<div style="padding:14px 12px;border-radius:13px;background:#fff;border:1px solid #ece4e1;text-align:center;font-size:30px;font-weight:800;color:#0a9f24">฿ ' + money(available) + '</div>' +
-        '</div>' +
-        '<div style="margin-bottom:12px;padding:14px;border:1px solid #e6d7d2;border-radius:15px;background:#f4f2f1">' +
-          '<div style="font-size:15px;font-weight:800;margin-bottom:8px;color:#4a0707">จำนวนเงินที่ต้องการถอน</div>' +
-          '<input id="swalWithdrawAmount" type="number" min="50" max="' + escapeAttr(String(available)) + '" step="0.01" inputmode="decimal" placeholder="เช่น 500" style="margin:0;width:100%;height:56px;border:1px solid #d9cdca;border-radius:13px;padding:0 15px;font-size:20px;box-sizing:border-box;background:#fff;color:#2b1512">' +
-        '</div>' +
-        '<div style="margin:0 2px 13px;color:#5f514d;font-size:13px">ถอนเงินขั้นต่ำ <b>50 บาท</b></div>' +
-        '<div style="padding:13px;border:1px solid #fecaca;border-radius:13px;background:#fef2f2;color:#7f1d1d">' +
-          '<div style="font-size:10px;font-weight:900;margin-bottom:6px;color:#b91c1c">ข้อมูลธนาคารสำหรับถอนเงิน</div>' +
-          '<div><b>ชื่อบัญชี:</b> ' + escapeHtml(bankAccountName || "-") + '</div>' +
-          '<div><b>ธนาคาร:</b> ' + escapeHtml(bankName || "-") + '</div>' +
-          '<div><b>เลขบัญชี:</b> ' + escapeHtml(bankAccountNo || "-") + '</div>' +
-        '</div>' +
-      '</div>',
-    showCancelButton:true,
-    cancelButtonText:"ยกเลิก",
-    confirmButtonText:"ตกลง",
-    confirmButtonColor:"#b91c1c",
-    focusConfirm:false,
-    preConfirm:function(){
-      var input = document.getElementById("swalWithdrawAmount");
-      var amount = num(input ? input.value : 0);
-      if (!amount || amount <= 0) {
-        Swal.showValidationMessage("กรุณากรอกจำนวนเงินที่ต้องการถอน");
-        return false;
-      }
-      if (amount < minWithdraw) {
-        Swal.showValidationMessage("ถอนเงินขั้นต่ำ 50 บาท");
-        return false;
-      }
-      if (available < amount) {
-        Swal.showValidationMessage("ยอดเงินที่ถอนได้ไม่เพียงพอ");
-        return false;
-      }
-      return {amount:amount};
+  var layer = ensureWithdrawPanel();
+
+  document.getElementById("withdrawAvailableV9").textContent = "฿ " + money(available);
+
+  var input = document.getElementById("withdrawAmountV9");
+  input.value = "";
+  input.max = String(available);
+
+  document.getElementById("withdrawBankAccountNameV9").textContent =
+    user.bankAccountName || user.displayName || "-";
+
+  document.getElementById("withdrawBankNameV9").textContent =
+    user.bankName || "-";
+
+  document.getElementById("withdrawBankNoV9").textContent =
+    user.bankAccountNo || "-";
+
+  var err = document.getElementById("withdrawErrorV9");
+  err.textContent = available < 50
+    ? "ยอดเงินที่ถอนได้ยังไม่ถึงขั้นต่ำ 50 บาท"
+    : "";
+
+  var btn = document.getElementById("withdrawConfirmV9");
+  btn.disabled = available < 50;
+  btn.textContent = "ยืนยันถอนเงิน";
+
+  layer.classList.add("show");
+
+  setTimeout(function(){
+    if (available >= 50) {
+      try { input.focus(); } catch(e) {}
     }
-  }).then(function(result){
-    if (!result.isConfirmed || !result.value) return;
-    setLoading(true);
-    api("memberSubmitWithdraw", state.token, result.value)
-      .then(function(r){
-        if (state.user) state.user.credit = Number(r.credit || r.balanceAfter || 0);
-        updateUserUI();
-        Swal.fire({
-          icon:"success",
-          title:"ส่งรายการถอนแล้ว",
-          html:'<div style="font-size:13px;line-height:1.8">ยอดถอน <b>' + money(r.amount) + ' บาท</b><br>สถานะ <b>รออนุมัติ</b></div>',
-          confirmButtonText:"ตกลง",
-          confirmButtonColor:"#b91c1c"
-        });
-      })
-      .catch(showErrorGlobal)
-      .finally(function(){ setLoading(false); });
-  });
+  }, 80);
+}
+
+function closeWithdrawPanel() {
+  var layer = document.getElementById("withdrawPanelLayer");
+  if (layer) layer.classList.remove("show");
+}
+
+function submitWithdrawV9() {
+  var user = state.user || {};
+  var available = Number(user.credit || 0);
+  var input = document.getElementById("withdrawAmountV9");
+  var amount = num(input ? input.value : 0);
+  var err = document.getElementById("withdrawErrorV9");
+  var btn = document.getElementById("withdrawConfirmV9");
+
+  if (!amount || amount <= 0) {
+    err.textContent = "กรุณากรอกจำนวนเงินที่ต้องการถอน";
+    return;
+  }
+
+  if (amount < 50) {
+    err.textContent = "ถอนเงินขั้นต่ำ 50 บาท";
+    return;
+  }
+
+  if (amount > available) {
+    err.textContent = "ยอดเงินที่ถอนได้ไม่เพียงพอ";
+    return;
+  }
+
+  err.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "กำลังส่ง...";
+
+  api("memberSubmitWithdraw", state.token, {amount:amount})
+    .then(function(r){
+      if (state.user) {
+        state.user.credit = Number(r.credit || r.balanceAfter || 0);
+      }
+
+      updateUserUI();
+      closeWithdrawPanel();
+
+      Swal.fire({
+        icon:"success",
+        title:"ส่งรายการถอนแล้ว",
+        html:
+          '<div style="font-size:13px;line-height:1.8">' +
+            'ยอดถอน <b>' + money(r.amount || amount) + ' บาท</b><br>' +
+            'สถานะ <b>รออนุมัติ</b>' +
+          '</div>',
+        confirmButtonText:"ตกลง",
+        confirmButtonColor:"#b91c1c"
+      });
+    })
+    .catch(function(e){
+      btn.disabled = false;
+      btn.textContent = "ยืนยันถอนเงิน";
+      err.textContent = (e && e.message) ? e.message : String(e || "ส่งคำขอถอนไม่สำเร็จ");
+    });
 }
 
 function showLotto() {
