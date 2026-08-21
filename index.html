@@ -1,6 +1,6 @@
 <!-- ALL-IN-ONE: แนะนำเพื่อน + ถอนขั้นต่ำ 100 บาท + ประกาศหน้าเว็บ + Popup สูงสุด 2 รายการ -->
 <!-- RESULT HISTORY SHEET FINAL -->
-<!-- INSTANT LOGIN V4 LAZY BOOT -->
+<!-- INDEX V7 TOUCH-SAFE CONFIRM + STATELESS SESSION -->
 <!doctype html>
 <html lang="th">
  <head>
@@ -10730,7 +10730,127 @@ function buildConfirmHtml() {
   '</div>';
 }
 
-async function openConfirm() {
+/* =====================================================
+   V7 TOUCH-SAFE BET CONFIRM
+   ไม่ใช้ SweetAlert ใน flow ยืนยันโพย เพื่อเลี่ยงปัญหา iOS Safari
+===================================================== */
+
+var betSubmitting = false;
+
+function ensureBetConfirmLayer() {
+  var layer = document.getElementById("betConfirmLayer");
+  if (layer) return layer;
+
+  var style = document.createElement("style");
+  style.id = "betConfirmTouchSafeStyle";
+  style.textContent =
+    "#betConfirmLayer{" +
+      "position:fixed;inset:0;z-index:2147483000;" +
+      "display:none;align-items:center;justify-content:center;" +
+      "padding:18px max(18px,env(safe-area-inset-right)) " +
+      "calc(18px + env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));" +
+      "background:rgba(45,22,22,.48);backdrop-filter:blur(5px);" +
+      "-webkit-backdrop-filter:blur(5px);pointer-events:auto;touch-action:manipulation;" +
+    "}" +
+    "#betConfirmLayer.show{display:flex!important;}" +
+    "#betConfirmCard{" +
+      "width:min(100%,680px);max-height:calc(100dvh - 54px);" +
+      "display:flex;flex-direction:column;overflow:hidden;" +
+      "background:#fffdfb;border:1px solid #efb1ad;border-radius:24px;" +
+      "box-shadow:0 24px 70px rgba(67,10,10,.32);pointer-events:auto;" +
+    "}" +
+    "#betConfirmHead{padding:18px 18px 10px;text-align:center;flex:0 0 auto;}" +
+    "#betConfirmIcon{" +
+      "width:64px;height:64px;margin:0 auto 8px;border:4px solid #88b5c6;" +
+      "border-radius:50%;display:grid;place-items:center;color:#88b5c6;" +
+      "font-size:42px;line-height:1;font-weight:500;" +
+    "}" +
+    "#betConfirmTitle{font-size:27px;font-weight:900;color:#381111;}" +
+    "#betConfirmBody{" +
+      "padding:4px 18px 12px;overflow:auto;-webkit-overflow-scrolling:touch;" +
+      "overscroll-behavior:contain;flex:1 1 auto;min-height:0;" +
+    "}" +
+    "#betConfirmActions{" +
+      "display:grid;grid-template-columns:1fr 1.25fr;gap:12px;" +
+      "padding:14px 18px calc(16px + env(safe-area-inset-bottom));" +
+      "background:#fffdfb;border-top:1px solid #f3d6d3;flex:0 0 auto;" +
+    "}" +
+    "#betConfirmActions button{" +
+      "min-height:58px;border-radius:12px;font:inherit;font-size:18px;font-weight:850;" +
+      "touch-action:manipulation;-webkit-tap-highlight-color:transparent;" +
+      "pointer-events:auto;position:relative;z-index:1;" +
+    "}" +
+    "#betConfirmEdit{border:0;background:#fee2e2;color:#9f1d1d;}" +
+    "#betConfirmSend{" +
+      "border:0;background:linear-gradient(135deg,#780909,#c11d1d);" +
+      "color:#fff;box-shadow:0 10px 22px rgba(120,9,9,.22);" +
+    "}" +
+    "#betConfirmSend:disabled{opacity:.55;}" +
+    "#betConfirmLayer.success #betConfirmIcon{border-color:#16a34a;color:#16a34a;font-size:34px;}" +
+    "#betConfirmLayer.success #betConfirmActions{grid-template-columns:1fr;}" +
+    "#betConfirmLayer.success #betConfirmEdit{display:none;}" +
+    "@media(max-width:480px){" +
+      "#betConfirmLayer{padding:10px 12px calc(10px + env(safe-area-inset-bottom));align-items:center;}" +
+      "#betConfirmCard{max-height:calc(100dvh - 28px);border-radius:22px;}" +
+      "#betConfirmHead{padding:14px 14px 8px;}" +
+      "#betConfirmIcon{width:58px;height:58px;font-size:38px;}" +
+      "#betConfirmTitle{font-size:24px;}" +
+      "#betConfirmBody{padding:2px 14px 10px;}" +
+      "#betConfirmActions{padding:12px 14px calc(12px + env(safe-area-inset-bottom));gap:10px;}" +
+      "#betConfirmActions button{min-height:56px;font-size:17px;}" +
+    "}";
+
+  document.head.appendChild(style);
+
+  layer = document.createElement("div");
+  layer.id = "betConfirmLayer";
+  layer.setAttribute("role","dialog");
+  layer.setAttribute("aria-modal","true");
+  layer.innerHTML =
+    '<div id="betConfirmCard">' +
+      '<div id="betConfirmHead">' +
+        '<div id="betConfirmIcon">?</div>' +
+        '<div id="betConfirmTitle">ยืนยันโพย</div>' +
+      '</div>' +
+      '<div id="betConfirmBody"></div>' +
+      '<div id="betConfirmActions">' +
+        '<button id="betConfirmEdit" type="button">แก้ไข</button>' +
+        '<button id="betConfirmSend" type="button">ยืนยันแทง</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(layer);
+
+  var editBtn = document.getElementById("betConfirmEdit");
+  var sendBtn = document.getElementById("betConfirmSend");
+
+  editBtn.addEventListener("click", function(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
+    closeConfirm();
+  }, false);
+
+  sendBtn.addEventListener("click", function(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    if (layer.classList.contains("success")) {
+      closeConfirm();
+      return;
+    }
+
+    if (betSubmitting) return;
+    confirmAndSend();
+  }, false);
+
+  document.getElementById("betConfirmCard").addEventListener("click", function(ev){
+    ev.stopPropagation();
+  }, false);
+
+  return layer;
+}
+
+function openConfirm() {
   clearError();
 
   try {
@@ -10740,43 +10860,64 @@ async function openConfirm() {
     return;
   }
 
-  var result = await Swal.fire({
-    title:"ยืนยันโพย",
-    html:buildConfirmHtml(),
-    icon:"question",
-    showCancelButton:true,
-    confirmButtonText:"ยืนยันแทง",
-    cancelButtonText:"แก้ไข",
-    reverseButtons:true,
-    confirmButtonColor:"#e11d48",
-    cancelButtonColor:"#71717a",
-    focusConfirm:false
-  });
+  try {
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
+  } catch(e) {}
 
-  if (result.isConfirmed) {
-    confirmAndSend();
-    return;
-  }
+  var layer = ensureBetConfirmLayer();
+  layer.classList.remove("success");
 
-  if (result.dismiss === Swal.DismissReason.cancel) {
-    // กลับไปหน้าแทงหวยตัวเดิมเพื่อแก้ไข
-    showBet();
+  document.getElementById("betConfirmIcon").textContent = "?";
+  document.getElementById("betConfirmTitle").textContent = "ยืนยันโพย";
+  document.getElementById("betConfirmBody").innerHTML = buildConfirmHtml();
 
-    setTimeout(function(){
-      try {
-        els.numberInput.focus();
-      } catch(e) {}
-    }, 120);
-  }
+  var editBtn = document.getElementById("betConfirmEdit");
+  var sendBtn = document.getElementById("betConfirmSend");
+  editBtn.style.display = "";
+  sendBtn.textContent = "ยืนยันแทง";
+  sendBtn.disabled = false;
+
+  layer.classList.add("show");
 }
 
 function closeConfirm() {
-  if (typeof Swal !== "undefined") Swal.close();
+  var layer = document.getElementById("betConfirmLayer");
+  if (layer) layer.classList.remove("show","success");
 }
 
 function renderConfirm() {}
 
+function showBetSuccessTouchSafe(total, billId) {
+  var layer = ensureBetConfirmLayer();
+  layer.classList.add("success");
+
+  document.getElementById("betConfirmIcon").textContent = "✓";
+  document.getElementById("betConfirmTitle").textContent = "แทงสำเร็จ";
+  document.getElementById("betConfirmBody").innerHTML =
+    '<div style="text-align:center;padding:10px 8px 18px">' +
+      '<div style="font-size:13px;color:#71717a">ยอดแทง</div>' +
+      '<div style="font-size:32px;font-weight:950;color:#b91c1c;margin-top:2px">' +
+        money(total) +
+      '</div>' +
+      (billId
+        ? '<div style="margin-top:8px;font-size:12px;color:#71717a">เลขที่โพย ' +
+            escapeHtml(billId) + '</div>'
+        : '') +
+    '</div>';
+
+  document.getElementById("betConfirmEdit").style.display = "none";
+  var sendBtn = document.getElementById("betConfirmSend");
+  sendBtn.disabled = false;
+  sendBtn.textContent = "ตกลง";
+
+  layer.classList.add("show");
+}
+
 function confirmAndSend() {
+  if (betSubmitting) return;
+
   try {
     validateDirectBet();
   } catch(e) {
@@ -10789,12 +10930,16 @@ function confirmAndSend() {
   var raw = buildCanonicalRawText();
   var directBet = bills.length === 1 ? buildBillDirectPayload(bills[0]) : null;
 
-  Swal.fire({
-    title:"กำลังส่งโพย",
-    allowOutsideClick:false,
-    allowEscapeKey:false,
-    didOpen:function(){ Swal.showLoading(); }
-  });
+  betSubmitting = true;
+
+  var sendBtn = document.getElementById("betConfirmSend");
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = "กำลังส่ง...";
+  }
+
+  closeConfirm();
+  setLoading(true);
 
   var payload = {
     lottoName: state.selectedLotto.name,
@@ -10804,6 +10949,9 @@ function confirmAndSend() {
 
   api("placeCreditBet", state.token, payload)
   .then(function(r){
+    setLoading(false);
+    betSubmitting = false;
+
     if (state.user) state.user.credit = r.credit;
     updateUserUI();
 
@@ -10811,14 +10959,18 @@ function confirmAndSend() {
     var total = Number(r.totalAmount || totalBeforeSend);
     clearCurrentBet();
 
-    return Swal.fire({
-      icon:"success",
-      title:"แทงสำเร็จ",
-      confirmButtonText:"ตกลง",
-      confirmButtonColor:"#e11d48"
-    });
+    showBetSuccessTouchSafe(total, billId);
   })
   .catch(function(e){
+    setLoading(false);
+    betSubmitting = false;
+
+    var btn = document.getElementById("betConfirmSend");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "ยืนยันแทง";
+    }
+
     showErrorGlobal(e);
   });
 }
