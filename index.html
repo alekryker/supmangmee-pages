@@ -1,5 +1,6 @@
 <!-- ALL-IN-ONE: แนะนำเพื่อน + ถอนขั้นต่ำ 100 บาท + ประกาศหน้าเว็บ + Popup สูงสุด 2 รายการ -->
 <!-- RESULT HISTORY SHEET FINAL -->
+<!-- INSTANT LOGIN V4 LAZY BOOT -->
 <!doctype html>
 <html lang="th">
  <head>
@@ -8516,6 +8517,8 @@ var state = {
   lottos: [],
   depositAccount: null,
   lineContactUrl: DEFAULT_LINE_CONTACT_URL,
+  bootLoaded: false,
+  bootPromise: null,
   selectedLotto: null,
   betLayout: "modern",
   betMode: "two",
@@ -8572,15 +8575,15 @@ document.addEventListener("DOMContentLoaded", function () {
   captureAffiliateRef();
   bindEvents();
   bindRouteHistory();
-  testApi();
+  // ไม่ ping API ตอนเปิดหน้า เพื่อให้หน้า Login เบาที่สุด
 
   if (state.token) {
     var cachedLoginUser = readFastLoginUser();
 
     if (cachedLoginUser) {
       // รีเฟรชหน้าแล้วเข้า Home ทันทีจากข้อมูลที่เก็บไว้
+      // ไม่โหลดหวย/เรท/ประกาศ จนกว่าจะกดเมนูที่ต้องใช้
       enterAppImmediately(cachedLoginUser);
-      startBackgroundBoot();
     } else {
       // Session เก่าที่ไม่มี user cache ใช้ boot แบบเดิมครั้งเดียว
       boot().catch(function(err){
@@ -8722,7 +8725,9 @@ function bindEvents() {
   };
 
   // V16.1: สมาชิกอัปโหลดสลิปและตรวจสอบได้ด้วยตัวเอง
-  if (els.homeDepositBtn) els.homeDepositBtn.onclick = openSelfDeposit;
+  if (els.homeDepositBtn) els.homeDepositBtn.onclick = function(){
+    ensureBootLoaded().then(openSelfDeposit).catch(showErrorGlobal);
+  };
   if (els.homeWithdrawBtn) els.homeWithdrawBtn.onclick = showWithdrawInfo;
   if (els.homeAffiliateBtn) els.homeAffiliateBtn.onclick = showAffiliate;
   if (els.affiliateBackBtn) els.affiliateBackBtn.onclick = showHome;
@@ -8824,7 +8829,9 @@ function bindEvents() {
   els.submitBtn.onclick = openConfirm;
 
 
-  els.adminBtn.onclick = function(){ showAdmin("dashboard"); };
+  els.adminBtn.onclick = function(){
+    ensureBootLoaded().then(function(){ showAdmin("dashboard"); }).catch(showErrorGlobal);
+  };
   els.adminLogoutBtn.onclick = function(){ logout(true); };
 
   document.querySelectorAll(".admin-tab").forEach(function(btn){
@@ -8954,24 +8961,29 @@ function enterAppImmediately(user) {
 }
 
 function startBackgroundBoot() {
-  if (!state.token) return;
+  // V4: ไม่โหลด Boot อัตโนมัติหลัง Login
+  // ข้อมูลหนักจะโหลดเมื่อผู้ใช้กดเมนูที่จำเป็นเท่านั้น
+  return Promise.resolve();
+}
 
-  // สำรอง Session หลังเข้าหน้าหลักแล้ว ไม่ขวาง Login
-  api("persistSession", state.token).catch(function(){});
+function ensureBootLoaded() {
+  if (state.bootLoaded && state.lottos && state.lottos.length) {
+    return Promise.resolve(true);
+  }
 
-  // โหลดข้อมูลรองทั้งหมดหลังบ้านโดยไม่เปิด Loading overlay
-  setTimeout(function(){
-    boot(true).catch(function(err){
-      // ถ้า session หมดจริงค่อยเด้งออก
-      var msg = String(err && err.message || "");
-      if (
-        msg.indexOf("Session หมดอายุ") >= 0 ||
-        msg === "SESSION_EXPIRED"
-      ) {
-        logout(false);
-      }
+  if (state.bootPromise) return state.bootPromise;
+  if (!state.token) return Promise.reject(new Error("ไม่มี session"));
+
+  state.bootPromise = boot(true)
+    .then(function(){
+      state.bootLoaded = true;
+      return true;
+    })
+    .finally(function(){
+      state.bootPromise = null;
     });
-  }, 0);
+
+  return state.bootPromise;
 }
 
 function login() {
@@ -8996,8 +9008,8 @@ function login() {
       // ปิดวงกลมโหลดทันที ไม่รอ getCreditBetBoot
       setLoading(false);
 
-      // ส่วนที่ไม่จำเป็นต่อ Login โหลดทีหลัง
-      startBackgroundBoot();
+      // V4: ไม่โหลดข้อมูลหนักหลัง Login
+      // จะโหลดเมื่อผู้ใช้กดเมนูที่ต้องใช้เท่านั้น
     })
     .catch(function(err){
       showErrorGlobal(err);
@@ -9042,7 +9054,7 @@ function registerMember() {
 
       enterAppImmediately(r.user);
       setLoading(false);
-      startBackgroundBoot();
+      // V4: lazy boot เมื่อเปิดเมนูที่ต้องใช้
 
       Swal.fire({
         icon:"success",
@@ -9171,6 +9183,9 @@ function logout(callServer) {
 
   state.token = "";
   state.user = null;
+  state.bootLoaded = false;
+  state.bootPromise = null;
+  state.lottos = [];
   state.announcementsShown = false;
   sessionStorage.removeItem("creditToken");
   sessionStorage.removeItem("creditUser");
@@ -9223,6 +9238,7 @@ function boot(silent) {
       updateUserUI();
       renderLottos();
       fillAdminLottoFilter();
+      state.bootLoaded = true;
 
       els.adminBtn.classList.toggle("hidden", !state.isAdmin);
 
@@ -9575,8 +9591,32 @@ function showLotto() {
   els.adminScreen.classList.remove("active");
   els.lottoScreen.classList.add("active");
   pushAppRoute("lotto");
-  startTimer(updateLottoCountdowns);
   scrollTo(0,0);
+
+  // ถ้ามีข้อมูลแล้ว เปิดทันที
+  if (state.bootLoaded && state.lottos && state.lottos.length) {
+    renderLottos();
+    startTimer(updateLottoCountdowns);
+    return;
+  }
+
+  // แสดงหน้าเลือกหวยทันที แล้วโหลดข้อมูลเฉพาะเมนูนี้
+  if (els.lottoGrid) {
+    els.lottoGrid.innerHTML = '<div class="empty">กำลังโหลดรายการหวย…</div>';
+  }
+  if (els.lottoEmpty) els.lottoEmpty.classList.add("hidden");
+
+  ensureBootLoaded()
+    .then(function(){
+      renderLottos();
+      startTimer(updateLottoCountdowns);
+    })
+    .catch(function(err){
+      if (els.lottoGrid) {
+        els.lottoGrid.innerHTML = '<div class="empty">โหลดรายการหวยไม่สำเร็จ กรุณาลองใหม่</div>';
+      }
+      showErrorGlobal(err);
+    });
 }
 
 function showBet() {
